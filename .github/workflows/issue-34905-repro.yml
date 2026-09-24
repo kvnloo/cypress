@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   reproduce:
     if: github.repository == 'kvnloo/cypress'
@@ -20,10 +24,12 @@ jobs:
         force-http1: ['false', 'true']
     env:
       FORCE_HTTP1: ${{ matrix.force-http1 }}
-      REPRO_DIR: ${{ runner.temp }}/cypress-34905-experiment
-      CYPRESS_CACHE_FOLDER: ${{ runner.temp }}/cypress-cache
       DEBUG: cypress:server:browsers:cdp-fetch-transport,cypress:server:browsers:cdp-network-extra-info
     steps:
+      - name: Initialize runner-local paths
+        run: |
+          echo "REPRO_DIR=$RUNNER_TEMP/cypress-34905-experiment" >> "$GITHUB_ENV"
+          echo "CYPRESS_CACHE_FOLDER=$RUNNER_TEMP/cypress-cache" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
