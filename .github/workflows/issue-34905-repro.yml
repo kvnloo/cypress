@@ -1,0 +1,66 @@
+name: Issue 34905 reproduction
+
+on:
+  push:
+    branches: [issue-34905-repro-20260924]
+    paths: [cypress-34905-experiment/**, .github/workflows/issue-34905-repro.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reproduce:
+    if: github.repository == 'kvnloo/cypress'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        force-http1: ['false', 'true']
+    env:
+      FORCE_HTTP1: ${{ matrix.force-http1 }}
+      REPRO_DIR: ${{ runner.temp }}/cypress-34905-experiment
+      CYPRESS_CACHE_FOLDER: ${{ runner.temp }}/cypress-cache
+      DEBUG: cypress:server:browsers:cdp-fetch-transport,cypress:server:browsers:cdp-network-extra-info
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.19.0'
+      - name: Prepare isolated experiment
+        run: |
+          mkdir -p "$REPRO_DIR/evidence"
+          cp -R cypress-34905-experiment/. "$REPRO_DIR/"
+          node --version | tee "$REPRO_DIR/evidence/node-version.txt"
+          cat /etc/os-release > "$REPRO_DIR/evidence/os-release.txt"
+      - name: Validate fixture
+        working-directory: ${{ env.REPRO_DIR }}
+        run: node --experimental-strip-types --test fixture.test.ts | tee evidence/fixture-tests.tap
+      - name: Install exact Chrome for Testing
+        run: |
+          curl --fail --location --retry 2 --max-time 180 \
+            'https://storage.googleapis.com/chrome-for-testing-public/154.0.8037.57/linux64/chrome-linux64.zip' \
+            -o "$RUNNER_TEMP/chrome.zip"
+          sha256sum "$RUNNER_TEMP/chrome.zip" > "$REPRO_DIR/evidence/chrome-archive.sha256"
+          unzip -q "$RUNNER_TEMP/chrome.zip" -d "$RUNNER_TEMP/chrome"
+          echo "CHROME_BINARY=$RUNNER_TEMP/chrome/chrome-linux64/chrome" >> "$GITHUB_ENV"
+          "$RUNNER_TEMP/chrome/chrome-linux64/chrome" --version | tee "$REPRO_DIR/evidence/chrome-version.txt"
+      - name: Install pinned Cypress outside the monorepo
+        working-directory: ${{ env.REPRO_DIR }}
+        run: corepack yarn install --non-interactive | tee evidence/install.log
+      - name: Run browser evidence
+        working-directory: ${{ env.REPRO_DIR }}
+        run: node --experimental-strip-types run.ts 2>&1 | tee evidence/browser.log
+      - name: Save receipts even when a test fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-34905-force-http1-${{ matrix.force-http1 }}
+          path: |
+            ${{ env.REPRO_DIR }}/evidence/
+            ${{ env.REPRO_DIR }}/yarn.lock
+          if-no-files-found: warn
+          retention-days: 7
