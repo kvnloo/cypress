@@ -16,6 +16,8 @@ const environment = {
   node: process.version, platform: platform(), release: release(), browser,
   forceHttp1: mode === 'true', commit: process.env.GITHUB_SHA ?? null,
   expectedCypress: '16.1.0', expectedChrome: '154.0.8037.57',
+  experimentalRunAllSpecs: true,
+  statePrimer: 'cross-origin auth redirect before target spec',
 }
 
 try {
@@ -26,7 +28,7 @@ try {
   })
 
   await writeFile('evidence/cypress-result.json', JSON.stringify(results, null, 2))
-  process.exitCode = 'totalFailed' in results && results.totalTests === 12 && results.totalPassed === 12 && results.totalFailed === 0 ? 0 : 1
+  process.exitCode = 'totalFailed' in results && results.totalTests === 13 && results.totalPassed === 13 && results.totalFailed === 0 ? 0 : 1
 } catch (error) {
   await writeFile('evidence/runner-error.txt', error instanceof Error ? error.stack ?? error.message : String(error))
   process.exitCode = 1

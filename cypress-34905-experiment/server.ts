@@ -13,7 +13,33 @@ export async function startFixture(port = 0) {
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url ?? '/', 'http://127.0.0.1')
+      const listeningPort = (server.address() as AddressInfo | null)?.port
+
       res.setHeader('Cache-Control', 'no-store')
+
+      // Reproduce the newly reported precondition without a third-party auth
+      // service: top-level navigation crosses from 127.0.0.1 to localhost,
+      // then returns to the AUT origin before the redirecting fetch spec runs.
+      if (url.pathname === '/auth-start' && listeningPort) {
+        res.writeHead(302, { Location: `http://localhost:${listeningPort}/auth-hop` }).end()
+        return
+      }
+
+      if (url.pathname === '/auth-hop' && listeningPort) {
+        res.writeHead(302, {
+          Location: `http://127.0.0.1:${listeningPort}/auth-done`,
+          'Set-Cookie': 'issue34905_auth=1; Path=/; SameSite=Lax',
+        }).end()
+
+        return
+      }
+
+      if (url.pathname === '/auth-done') {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8')
+        res.end('<!doctype html><html><body><main id="auth-done">auth done</main></body></html>')
+        return
+      }
+
       if (url.pathname === '/') {
         const id = url.searchParams.get('id') || randomUUID()
         const status = Number(url.searchParams.get('status') || 302)
@@ -95,4 +121,3 @@ document.getElementById('form').addEventListener('submit', function (event) {
     }),
   }
 }
-
