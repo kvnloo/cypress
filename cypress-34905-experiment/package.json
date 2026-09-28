@@ -7,5 +7,8 @@
     "test:fixture": "node --experimental-strip-types --test fixture.test.ts",
     "test:browser": "node --experimental-strip-types run.ts"
   },
-  "devDependencies": { "cypress": "16.1.0" }
+  "devDependencies": {
+    "cypress": "16.1.0",
+    "typescript": "~5.4.5"
+  }
 }
